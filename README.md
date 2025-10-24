@@ -11,6 +11,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Редактирование .env (заполнение токена бота и chat_id для получателя)
+# Шаблон находится в файле env.example
 nano .env
 
 # Добавление правила в crontab
