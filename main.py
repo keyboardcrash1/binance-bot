@@ -76,10 +76,22 @@ def analyze_news_with_ai(title, url):
         print(f"Ошибка при анализе ИИ: {e}")
         return {"impact_score": 0, "summary": "Error", "urgency": "low", "reasoning": ""}
 
-def send_telegram_alert(article, analysis):
+def send_telegram_message(message):
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+    try:
+        request = requests.post(url, json=payload)
+    except Exception as e:
+        print(f"Ошибка при отправке сообщения в Telegram: {e}")
+
+def send_telegram_alert(article, analysis):
     article_url = get_article_url(article['code'])
     
     message = f"""
@@ -95,18 +107,48 @@ def send_telegram_alert(article, analysis):
 
 [Читать статью]({article_url})
 """
+    send_telegram_message(message)
+
+def create_deal():
+    url = "https://test.apitter.com/cryptogate/order.php?token=555aaa&sync&action=create&stock=binance_spot&mode=json&tag=COMMENT"
     
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown"
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
+
+    payload = [
+        {
+            "stock": "binance_spot",
+            "type": "limit",
+            "side": "buy",
+            "positionSide": "long",
+            "pair": "BTCUSDT",
+            "data": {
+                "qty": 15/100000,
+                "price": 100000
+            }
+        },
+        {
+            "stock": "binance_spot",
+            "type": "oco",
+            "side": "sell",
+            "positionSide": "long",
+            "pair": "BTCUSDT",
+            "data": {
+                "qty": 15/100000,
+                "price": 120000,  # 100000 + 20%
+                "stoploss": 95000  # 100000 - 5%
+            }
+        }
+    ]
+
     try:
-        request = requests.post(url, json=payload)
-        print(request.text)
+        response = requests.post(url, headers=headers, json=payload)
+        deal_id = response.json().get('data', {}).get('deal')
+        send_telegram_message(f"Сделка создана! ID: {deal_id}")
     except Exception as e:
-        print(f"Ошибка при отправке сообщения в Telegram: {e}")
+        print(f"Ошибка при создании сделки: {e}")
 
 if __name__ == "__main__":
     init_db()
@@ -125,8 +167,9 @@ if __name__ == "__main__":
             print(f"URL: {url}")
             print(f"Summary: {analysis['summary']}")
 
-            # Если новость важная - отправляем алерт
+            # Если новость важная - отправляем алерт и создаёт сделку
             if analysis['impact_score'] > 70:
                 send_telegram_alert(article, analysis)
+                create_deal()
 
             mark_news_as_processed(article_id, article['title'])
